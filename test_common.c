@@ -7,7 +7,7 @@
 #include "bench.c"
 #include "bloom.h"
 #include "tst.h"
-
+#include "xorfilter.h"
 #define TableSize 5000000 /* size of bloom filter */
 #define HashNumber 2      /* number of hash functions */
 
@@ -31,12 +31,88 @@ static void rmcrlf(char *s)
 
 #define IN_FILE "cities.txt"
 
+int cstring_cmp(const void *a, const void *b)
+{
+    const char **ia = (const char **) a;
+    const char **ib = (const char **) b;
+    return strcmp(*ia, *ib);
+}
+
+void rm_dup(char **stringSet, int *length)
+{
+    char **i = stringSet;
+    char **j = stringSet + 1;
+    char **end = stringSet + *length;
+    while (j != end) {
+        while (strcmp(*i, *j) == 0) {
+            char **tmp = j;
+            j++;
+            free(*tmp);
+            (*length)--;
+        }
+        *(++i) = *j;
+        j++;
+    }
+}
+
+static unsigned long jenkins(const void *_str)
+{
+    const char *key = _str;
+    unsigned long hash = 0;
+    while (*key) {
+        hash += *key;
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
+        key++;
+    }
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
+    return hash;
+}
+
+u_int64_t *cities_parsing(FILE *fp, char **stringSet, int *setsize)
+{
+    int size = 0;
+    char line[WRDMAX];
+    while (fgets(line, WRDMAX, fp) != NULL) {
+        char city[WRDMAX] = "";
+        char province[WRDMAX] = "";
+        char nation[WRDMAX] = "";
+        sscanf(line, "%[^,^\n], %[^,^\n], %[^,^\n]", city, province, nation);
+        char *city_dup = strdup(city);
+        char *province_dup = strdup(province);
+        char *nation_dup = strdup(nation);
+        if (*nation) {
+            *(stringSet + size) = city_dup;
+            *(stringSet + size + 1) = province_dup;
+            *(stringSet + size + 2) = nation_dup;
+            size = size + 3;
+        } else {
+            *(stringSet + size) = city_dup;
+            *(stringSet + size + 1) = province_dup;
+            free(nation_dup);
+            size = size + 2;
+        }
+    }
+    qsort(stringSet, size, sizeof(char *), cstring_cmp);
+    rm_dup(stringSet, &size);
+    *setsize = size;
+    u_int64_t *stringSet_hashed = malloc(size * sizeof(u_int64_t));
+
+    for (int j = 0; j < size; j++) {
+        *(stringSet_hashed + j) = jenkins(*(stringSet + j));
+    }
+    return stringSet_hashed;
+
+}
 int main(int argc, char **argv)
 {
     char word[WRDMAX] = "";
     char *sgl[LMAX] = {NULL};
     tst_node *root = NULL, *res = NULL;
     int idx = 0, sidx = 0;
+    int setsize = 0;
     double t1, t2;
     int CPYmask = -1;
     if (argc < 2) {
@@ -112,11 +188,23 @@ int main(int argc, char **argv)
     } else
         printf("open file error\n");
 
+    FILE *fp_xor = fopen(IN_FILE, "r");
+    char **stringSet = malloc(300000 * sizeof(char *));
+    u_int64_t *stringSet_hashed = cities_parsing(fp_xor, stringSet, &setsize);
+    xor8_t filter;
+    xor8_allocate(setsize, &filter);
+    bool is_ok = xor8_populate(stringSet_hashed, setsize, &filter);
+    if (!is_ok) {
+        printf("You have duplicate keys");
+        return 0;
+    }
+
     for (;;) {
         printf(
             "\nCommands:\n"
             " a  add word to the tree\n"
             " f  find word in tree\n"
+            " x  find word in tree (xor filter\n"
             " s  search words matching prefix\n"
             " d  delete word from the tree\n"
             " q  quit, freeing all data\n\n"
@@ -225,6 +313,29 @@ int main(int argc, char **argv)
                 printf("  deleted %s in %.6f sec\n", word, t2 - t1);
                 idx--;
             }
+            break;
+        case 'x':
+            printf("find word in tree(xor filter version)");
+            if (!fgets(word, sizeof word, stdin)) {
+                fprintf(stderr, "error: insufficient input.\n");
+                break;
+            }
+            rmcrlf(word);
+            t1 = tvgetf();
+
+            if (xor8_contain(jenkins(word), &filter)) {
+                t2 = tvgetf();
+                printf("Xor filter found %s in %.6f sec.\n", word, t2 - t1);
+                t1 = tvgetf();
+                res = tst_search(root, word);
+                t2 = tvgetf();
+                if (res)
+                    printf(" ---------\n Tree found %s in %.6f sec.\n",
+                           (char *) res, t2 - t1);
+                else
+                    printf("  ----------\n  %s not found by tree.\n", word);
+            } else
+                printf("  ----------\n  %s not found by Xor filter.\n", word);
             break;
         case 'q':
             goto quit;

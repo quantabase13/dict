@@ -12833,7 +12833,7 @@ Schwelm, Germany
 Stratford, Ontario, Canada
 Ferokh, India
 Salāya, India
-Oliver-Valdefierro, Oliver, Valdefierro, Spain
+Oliver-Valdefierro, Spain
 Cardona, Philippines
 Waltrop, Germany
 Bhāndāria, Bangladesh
@@ -22307,7 +22307,7 @@ Kartuzy, Poland
 Fillmore, California, United States
 Clorinda, Argentina
 La Punta, Argentina
-Villa Presidente Frei, Ñuñoa, Santiago, Chile, Chile
+Ñuñoa, Chile
 Jamaica, Cuba
 Pergamos, Cyprus
 El Gouna, Egypt
@@ -44281,7 +44281,7 @@ Llançà, Spain
 Estación de Cártama, Spain
 La Cuesta, Spain
 Valverde, Spain
-Xeraco,Jaraco, Spain
+Xeraco, Spain
 Walenstadt, Switzerland
 Brig, Switzerland
 Ma‘lūlā, Syria
@@ -87741,7 +87741,7 @@ Villanueva del Campo, Spain
 Stetten, Switzerland
 Seneca, Pennsylvania, United States
 Waelder, Texas, United States
-Earth, TX, Texas, United States
+Earth, Texas, United States
 Putiševac, Bosnia and Herzegovina
 Vuka, Croatia
 Marsanne, France
