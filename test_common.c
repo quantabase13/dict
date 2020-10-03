@@ -106,6 +106,8 @@ u_int64_t *cities_parsing(FILE *fp, char **stringSet, int *setsize)
     return stringSet_hashed;
 
 }
+
+
 int main(int argc, char **argv)
 {
     char word[WRDMAX] = "";
@@ -115,6 +117,8 @@ int main(int argc, char **argv)
     int setsize = 0;
     double t1, t2;
     int CPYmask = -1;
+
+    srand(time(NULL));
     if (argc < 2) {
         printf("too less argument\n");
         return 1;
@@ -196,6 +200,48 @@ int main(int argc, char **argv)
     bool is_ok = xor8_populate(stringSet_hashed, setsize, &filter);
     if (!is_ok) {
         printf("You have duplicate keys");
+        return 0;
+    }
+    if (argc == 3 && strcmp(argv[1], "--benchXOR") == 0) {
+        int min = 0;
+        int max = setsize - 1;
+        FILE *fp = fopen(BENCH_TEST_FILE, "w");
+        for (int i = 0; i < setsize; i++) {
+            int x = rand() % (max - min) + min;
+            char *tmp = stringSet[x];
+            t1 = tvgetf();
+            if (!(xor8_contain(jenkins(tmp), &filter))) {
+                t2 = tvgetf();
+                fprintf(fp, "%d %f msec\n", i, (t2 - t1) * 1000);
+                continue;
+            }
+            res = tst_search(root, tmp);
+            t2 = tvgetf();
+            fprintf(fp, "%d %f msec\n", i, (t2 - t1) * 1000);
+        }
+        tst_free(root);
+        free(pool);
+        return 0;
+    }
+    if (argc == 3 && strcmp(argv[1], "--benchBloom") == 0) {
+        int min = 0;
+        int max = setsize - 1;
+        FILE *fp = fopen(BENCH_TEST_FILE, "w");
+        for (int i = 0; i < setsize; i++) {
+            int x = rand() % (max - min) + min;
+            char *tmp = stringSet[x];
+            t1 = tvgetf();
+            if (!(bloom_test(bloom, word))) {
+                t2 = tvgetf();
+                fprintf(fp, "%d %f msec\n", i, (t2 - t1) * 1000);
+                continue;
+            }
+            res = tst_search(root, tmp);
+            t2 = tvgetf();
+            fprintf(fp, "%d %f msec\n", i, (t2 - t1) * 1000);
+        }
+        tst_free(root);
+        free(pool);
         return 0;
     }
 
@@ -352,7 +398,7 @@ quit:
         tst_free(root);
     else
         tst_free_all(root);
-
+    xor8_free(&filter);
     bloom_free(bloom);
     return 0;
 }
